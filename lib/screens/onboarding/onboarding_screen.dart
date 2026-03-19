@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  final VoidCallback? onFinished; // ← add this
+
+  const OnboardingScreen({super.key, this.onFinished}); // ← add this
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -46,21 +49,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      _goToLogin();
+      _finish();
     }
   }
 
-  void _goToLogin() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+  void _finish() {
+    if (widget.onFinished != null) {
+      widget.onFinished!();
+      // Navigate to login after callback
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AriaColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -68,11 +82,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Align(
               alignment: Alignment.topRight,
               child: TextButton(
-                onPressed: _goToLogin,
-                child: const Text(
+                onPressed: _finish,
+                child: Text(
                   'Skip',
                   style: TextStyle(
-                    color: Color(0xFF9E9E9E),
+                    color: AriaColors.textSecondary,
                     fontSize: 14,
                   ),
                 ),
@@ -92,48 +106,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Icon circle
                         Container(
                           width: 100,
                           height: 100,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C63FF).withOpacity(0.12),
+                            color: AriaColors.primarySurface,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: const Color(0xFF6C63FF).withOpacity(0.3),
+                              color: AriaColors.primaryBorder,
                               width: 1.5,
                             ),
                           ),
                           child: Icon(
                             page.icon,
                             size: 44,
-                            color: const Color(0xFF6C63FF),
+                            color: AriaColors.primary,
                           ),
                         ),
 
                         const SizedBox(height: 48),
 
-                        // Title
                         Text(
                           page.title,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
-                          ),
+                          style: AriaText.displaySmall,
                         ),
 
                         const SizedBox(height: 16),
 
-                        // Subtitle
                         Text(
                           page.subtitle,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFF9E9E9E),
-                            fontSize: 16,
+                          style: AriaText.bodyLarge.copyWith(
+                            color: AriaColors.textSecondary,
                             height: 1.6,
                           ),
                         ),
@@ -156,8 +161,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   height: 8,
                   decoration: BoxDecoration(
                     color: isActive
-                        ? const Color(0xFF6C63FF)
-                        : const Color(0xFF3A3A3A),
+                        ? AriaColors.primary
+                        : AriaColors.divider,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 );
@@ -174,14 +179,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 height: 54,
                 child: ElevatedButton(
                   onPressed: _nextPage,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C63FF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
                   child: Text(
                     _currentPage == _pages.length - 1
                         ? 'Get Started'

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../theme/app_theme.dart';
 import 'signup_screen.dart';
+import '../../auth/auth_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -35,13 +37,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
     try {
-      await ref.read(authServiceProvider).signInWithEmail(
+      final credential = await ref.read(authServiceProvider).signInWithEmail(
         _emailController.text,
         _passwordController.text,
       );
+
+      // Manually sync Firebase user to Drift DB
+      final fbUser = credential.user;
+      if (fbUser != null) {
+        await ref.read(authProvider.notifier).syncFromFirebase(
+          id: fbUser.uid,
+          email: fbUser.email ?? '',
+          name: fbUser.displayName ??
+              fbUser.email?.split('@').first ??
+              'User',
+        );
+      }
+
       _showSuccess('Welcome back!');
       if (mounted) setState(() => _isLoading = false);
-      // Stream in main.dart handles navigation
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -58,7 +72,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
     try {
-      await ref.read(authServiceProvider).signInWithGoogle();
+      final credential = await ref.read(authServiceProvider).signInWithGoogle();
+
+      // Manually sync Firebase user to Drift DB
+      final fbUser = credential?.user;
+      if (fbUser != null) {
+        await ref.read(authProvider.notifier).syncFromFirebase(
+          id: fbUser.uid,
+          email: fbUser.email ?? '',
+          name: fbUser.displayName ??
+              fbUser.email?.split('@').first ??
+              'User',
+        );
+      }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -76,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Text(message),
           ],
         ),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: AriaColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -89,7 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AriaColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -99,69 +125,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 60),
 
               // Header
-              const Text(
+              Text(
                 'ARIA',
                 style: TextStyle(
-                  color: Color(0xFF6C63FF),
+                  color: AriaColors.primary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 4,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Welcome back',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                ),
+                style: AriaText.displaySmall,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Sign in to continue',
-                style: TextStyle(
-                  color: Color(0xFF9E9E9E),
-                  fontSize: 15,
-                ),
+                style: AriaText.bodyMedium,
               ),
 
               const SizedBox(height: 48),
 
               // Email field
-              const Text(
-                'Email',
-                style: TextStyle(
-                  color: Color(0xFF9E9E9E),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              _buildLabel('Email'),
               const SizedBox(height: 8),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(color: Colors.white),
+                style: AriaText.bodyLarge.copyWith(
+                  color: AriaColors.textPrimary,
+                ),
                 decoration: InputDecoration(
                   hintText: 'you@example.com',
-                  hintStyle: const TextStyle(color: Color(0xFF555555)),
-                  filled: true,
-                  fillColor: const Color(0xFF1A1A1A),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF6C63FF),
-                      width: 1.5,
-                    ),
-                  ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.mail_outline,
-                    color: Color(0xFF555555),
+                    color: AriaColors.textHint,
                     size: 20,
                   ),
                 ),
@@ -170,38 +169,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 20),
 
               // Password field
-              const Text(
-                'Password',
-                style: TextStyle(
-                  color: Color(0xFF9E9E9E),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              _buildLabel('Password'),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                style: const TextStyle(color: Colors.white),
+                style: AriaText.bodyLarge.copyWith(
+                  color: AriaColors.textPrimary,
+                ),
                 decoration: InputDecoration(
                   hintText: '••••••••',
-                  hintStyle: const TextStyle(color: Color(0xFF555555)),
-                  filled: true,
-                  fillColor: const Color(0xFF1A1A1A),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF6C63FF),
-                      width: 1.5,
-                    ),
-                  ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.lock_outline,
-                    color: Color(0xFF555555),
+                    color: AriaColors.textHint,
                     size: 20,
                   ),
                   suffixIcon: IconButton(
@@ -209,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       _obscurePassword
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: const Color(0xFF555555),
+                      color: AriaColors.textHint,
                       size: 20,
                     ),
                     onPressed: () =>
@@ -230,11 +210,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text(
+                  child: Text(
                     'Forgot password?',
                     style: TextStyle(
-                      color: Color(0xFF6C63FF),
+                      color: AriaColors.primary,
                       fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -247,25 +228,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF5252).withOpacity(0.1),
+                    color: AriaColors.errorBg,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFFF5252).withOpacity(0.3),
-                    ),
+                    border: Border.all(color: AriaColors.errorBorder),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Color(0xFFFF5252),
-                        size: 16,
-                      ),
+                      Icon(Icons.error_outline,
+                          color: AriaColors.error, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFFF5252),
+                          style: TextStyle(
+                            color: AriaColors.error,
                             fontSize: 13,
                           ),
                         ),
@@ -282,16 +258,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 height: 54,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleEmailLogin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C63FF),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                    const Color(0xFF6C63FF).withOpacity(0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
                   child: _isLoading
                       ? const SizedBox(
                     width: 20,
@@ -301,13 +267,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                      : const Text(
-                    'Sign In',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                      : const Text('Sign In'),
                 ),
               ),
 
@@ -317,27 +277,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Divider(
-                      color: Colors.white.withOpacity(0.08),
-                      thickness: 1,
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'or',
-                      style: TextStyle(
-                        color: Color(0xFF555555),
-                        fontSize: 13,
-                      ),
-                    ),
+                      child: Divider(color: AriaColors.divider, thickness: 1)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('or',
+                        style: TextStyle(
+                            color: AriaColors.textHint, fontSize: 13)),
                   ),
                   Expanded(
-                    child: Divider(
-                      color: Colors.white.withOpacity(0.08),
-                      thickness: 1,
-                    ),
-                  ),
+                      child: Divider(color: AriaColors.divider, thickness: 1)),
                 ],
               ),
 
@@ -350,20 +298,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: OutlinedButton(
                   onPressed: _isGoogleLoading ? null : _handleGoogleLogin,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withOpacity(0.12),
-                    ),
+                    foregroundColor: AriaColors.textPrimary,
+                    side: BorderSide(color: AriaColors.divider, width: 1.5),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(Rad.lg),
                     ),
                   ),
                   child: _isGoogleLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
+                      color: AriaColors.primary,
                       strokeWidth: 2,
                     ),
                   )
@@ -374,16 +320,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         'https://www.google.com/favicon.ico',
                         width: 20,
                         height: 20,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, __, ___) => Icon(
                           Icons.g_mobiledata,
-                          color: Colors.white,
+                          color: AriaColors.google,
                           size: 24,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Continue with Google',
                         style: TextStyle(
+                          color: AriaColors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
@@ -399,24 +346,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     "Don't have an account? ",
                     style: TextStyle(
-                      color: Color(0xFF9E9E9E),
-                      fontSize: 14,
-                    ),
+                        color: AriaColors.textSecondary, fontSize: 14),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const SignupScreen(),
-                      ),
+                          builder: (_) => const SignupScreen()),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Sign up',
                       style: TextStyle(
-                        color: Color(0xFF6C63FF),
+                        color: AriaColors.primary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -432,4 +376,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
+
+  Widget _buildLabel(String text) => Text(
+    text,
+    style: TextStyle(
+      color: AriaColors.textSecondary,
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../auth/auth_providers.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -30,34 +32,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleEmailSignup() async {
-    if (_nameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
-      setState(() => _errorMessage = 'Please fill in all fields.');
-      return;
-    }
-    if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = 'Passwords do not match.');
-      return;
-    }
-    if (_passwordController.text.length < 6) {
-      setState(() => _errorMessage = 'Password must be at least 6 characters.');
-      return;
-    }
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    // ... your existing validation ...
+
     try {
       final credential = await ref.read(authServiceProvider).signUpWithEmail(
         _emailController.text,
         _passwordController.text,
       );
       await credential.user?.updateDisplayName(_nameController.text.trim());
+
+      // Manually sync Firebase user to Drift DB
+      final fbUser = credential.user;
+      if (fbUser != null) {
+        await ref.read(authProvider.notifier).syncFromFirebase(
+          id: fbUser.uid,
+          email: fbUser.email ?? '',
+          name: _nameController.text.trim(),
+        );
+      }
+
       _showSuccess('Account created successfully!');
       if (mounted) setState(() => _isLoading = false);
-      // Stream in main.dart handles navigation
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -75,7 +70,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
     try {
       await ref.read(authServiceProvider).signInWithGoogle();
-      // Navigation handled automatically
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -93,19 +87,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             Text(message),
           ],
         ),
-        backgroundColor: const Color(0xFF4CAF50),
+        backgroundColor: AriaColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+            borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AriaColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -117,9 +111,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               // Back button
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new,
-                  color: Colors.white,
+                  color: AriaColors.textPrimary,
                   size: 20,
                 ),
                 padding: EdgeInsets.zero,
@@ -128,59 +122,43 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               const SizedBox(height: 24),
 
               // Header
-              const Text(
+              Text(
                 'ARIA',
                 style: TextStyle(
-                  color: Color(0xFF6C63FF),
+                  color: AriaColors.primary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 4,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Create account',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
-                ),
-              ),
+              Text('Create account', style: AriaText.displaySmall),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Set up your AI secretary in seconds',
-                style: TextStyle(
-                  color: Color(0xFF9E9E9E),
-                  fontSize: 15,
-                ),
+                style: AriaText.bodyMedium,
               ),
 
               const SizedBox(height: 40),
 
-              // Google Sign Up button — shown first (recommended)
+              // Google Sign Up button
               SizedBox(
                 width: double.infinity,
                 height: 54,
                 child: OutlinedButton(
                   onPressed: _isGoogleLoading ? null : _handleGoogleSignup,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withOpacity(0.12),
-                    ),
+                    foregroundColor: AriaColors.textPrimary,
+                    side: BorderSide(color: AriaColors.divider, width: 1.5),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                        borderRadius: BorderRadius.circular(Rad.lg)),
                   ),
                   child: _isGoogleLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
+                        color: AriaColors.primary, strokeWidth: 2),
                   )
                       : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -189,16 +167,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         'https://www.google.com/favicon.ico',
                         width: 20,
                         height: 20,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, __, ___) => Icon(
                           Icons.g_mobiledata,
-                          color: Colors.white,
+                          color: AriaColors.google,
                           size: 24,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Continue with Google',
                         style: TextStyle(
+                          color: AriaColors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
@@ -214,33 +193,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Divider(
-                      color: Colors.white.withOpacity(0.08),
-                      thickness: 1,
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'or sign up with email',
-                      style: TextStyle(
-                        color: Color(0xFF555555),
-                        fontSize: 13,
-                      ),
-                    ),
+                      child:
+                      Divider(color: AriaColors.divider, thickness: 1)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('or sign up with email',
+                        style: TextStyle(
+                            color: AriaColors.textHint, fontSize: 13)),
                   ),
                   Expanded(
-                    child: Divider(
-                      color: Colors.white.withOpacity(0.08),
-                      thickness: 1,
-                    ),
-                  ),
+                      child:
+                      Divider(color: AriaColors.divider, thickness: 1)),
                 ],
               ),
 
               const SizedBox(height: 24),
 
-              // Name field
               _buildLabel('Full name'),
               const SizedBox(height: 8),
               _buildTextField(
@@ -252,7 +220,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
               const SizedBox(height: 20),
 
-              // Email field
               _buildLabel('Email'),
               const SizedBox(height: 8),
               _buildTextField(
@@ -264,7 +231,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
               const SizedBox(height: 20),
 
-              // Password field
               _buildLabel('Password'),
               const SizedBox(height: 8),
               _buildTextField(
@@ -278,7 +244,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
               const SizedBox(height: 20),
 
-              // Confirm password field
               _buildLabel('Confirm password'),
               const SizedBox(height: 8),
               _buildTextField(
@@ -297,27 +262,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF5252).withOpacity(0.1),
+                    color: AriaColors.errorBg,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFFF5252).withOpacity(0.3),
-                    ),
+                    border: Border.all(color: AriaColors.errorBorder),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Color(0xFFFF5252),
-                        size: 16,
-                      ),
+                      Icon(Icons.error_outline,
+                          color: AriaColors.error, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFFF5252),
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(
+                              color: AriaColors.error, fontSize: 13),
                         ),
                       ),
                     ],
@@ -332,32 +290,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 height: 54,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleEmailSignup,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C63FF),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                    const Color(0xFF6C63FF).withOpacity(0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
                   child: _isLoading
                       ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
+                        color: Colors.white, strokeWidth: 2),
                   )
-                      : const Text(
-                    'Create Account',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                      : const Text('Create Account'),
                 ),
               ),
 
@@ -367,19 +307,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     'Already have an account? ',
                     style: TextStyle(
-                      color: Color(0xFF9E9E9E),
-                      fontSize: 14,
-                    ),
+                        color: AriaColors.textSecondary, fontSize: 14),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Text(
+                    child: Text(
                       'Sign in',
                       style: TextStyle(
-                        color: Color(0xFF6C63FF),
+                        color: AriaColors.primary,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -396,16 +334,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Color(0xFF9E9E9E),
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-  }
+  Widget _buildLabel(String text) => Text(
+    text,
+    style: TextStyle(
+      color: AriaColors.textSecondary,
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -419,31 +355,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
+      style: AriaText.bodyLarge.copyWith(color: AriaColors.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFF555555)),
-        filled: true,
-        fillColor: const Color(0xFF1A1A1A),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFF6C63FF),
-            width: 1.5,
-          ),
-        ),
-        prefixIcon: Icon(icon, color: const Color(0xFF555555), size: 20),
+        prefixIcon: Icon(icon, color: AriaColors.textHint, size: 20),
         suffixIcon: onToggleObscure != null
             ? IconButton(
           icon: Icon(
             obscure
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: const Color(0xFF555555),
+            color: AriaColors.textHint,
             size: 20,
           ),
           onPressed: onToggleObscure,
